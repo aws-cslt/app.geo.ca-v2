@@ -15,5 +15,11 @@ export function poll(fn: Function, validate: Function, interval: number) {
     stop = true;
   }
 
+  let promise = new Promise(execute);
+
   return [new Promise(execute), clear];
+  return {
+    result: promise,
+    cancelFunction: clear
+  };
 }

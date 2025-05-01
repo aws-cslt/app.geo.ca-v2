@@ -53,7 +53,7 @@
     {mapPreviewtext}
   </h2>
   {#if coordinates && showMap}
-    <Map {coordinates} id={uuid} dynamic=true mapType="record" footer=true timeSlider={useTimeSlider} />
+    <Map {coordinates} id={uuid} dynamic={true} mapType="record" footer={true} timeSlider={useTimeSlider} />
   {:else if coordinates}
     <p class="mx-5 md:mx-0">
       {windowTooSmall}

@@ -1,47 +1,54 @@
 <script lang="ts">
 	interface Props {
 		progress: number;
+		error: boolean;
 	}
 
-	let { progress = $bindable(0) }: Props = $props();
+	let { progress = $bindable(0), error = $bindable(false) }: Props = $props();
 
-	var i = 0;
-	function move() {
-		if (i == 0) {
-			i = 1;
-			var elem = document.getElementById('myBar');
-			var width = 10;
-			var id = setInterval(frame, 10);
-			function frame() {
-				if (width >= 100) {
-					clearInterval(id);
-					i = 0;
-				} else {
-					width++;
-					elem.style.width = width + '%';
-					elem.innerHTML = width + '%';
-				}
-			}
+	let bar = $state()
+	$effect(() => {
+		var elem = document.getElementById('myBar');
+		elem.style.width = progress + '%';
+
+		if (error) {
+			elem?.classList.add('error');
+		} else {
+			elem?.classList.remove('error');
 		}
-	}
+	});
 </script>
 
 <div id="myProgress">
-	<div id="myBar">{progress}%</div>
+	<div id="myBar" bind:this={bar}></div>
+	<div id="label">{progress}%</div>
 </div>
 
 <style>
 	#myProgress {
 		width: 100%;
-		background-color: #ddd;
+		border-width: 2px;
+		border-radius: 0.25rem;
+		position: relative;
 	}
 
 	#myBar {
-		width: 10%;
-		height: 30px;
+		width: 0%;
+		height: 2rem;
 		background-color: #04aa6d;
 		text-align: center;
-		line-height: 30px;
-		color: white;
+	}
+
+	#myBar.error {
+		background-color: #dc3545;
+	}
+
+	#label {
+		width: 100%;
+		line-height: 2rem;
+		text-align: center;
+		position: absolute;
+		left: 0;
+		top: 0;
 	}
 </style>

@@ -2,19 +2,31 @@
   "input": "Inputs",
   "output": "Outputs",
   "reset": "Reset",
-  "submit": "Submit",
+  "execute": "Execute",
   "jobStatusIntro": "The following is the status of the newly created Job:",
-  "createdOn": "Created On:",
-  "startedOn": "Started On:",
-  "updatedOn": "Updated On:",
-  "finishedOn": "Finished On:",
-  "statusColon": "Status:",
-  "progress": "Progress:",
-  "message": "Message:",
-  "result": "Result:",
+  "createdOn": "Created",
+  "startedOn": "Started",
+  "updatedOn": "Updated",
+  "finishedOn": "Finished",
+  "submitted": "Submitted",
+  "submitting": "Submitting",
+  "progress": "Progress",
+  "message": "Message",
+  "result": "Result",
   "download": "Download",
   "openIn2D": "Open in 2D",
   "openIn3D": "Open in 3D",
   "close": "Close",
-  "status": "Status"
+  "status": "Status",
+  "closeMap": "Close Map",
+
+
+  "accepted": "Accepted",
+  "running": "Running",
+  "successful": "Successful",
+  "failed": "Failed",
+  "dismissed": "Dismissed",
+
+
+  "invalidResponse": "Invalid Response"
 }

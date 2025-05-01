@@ -2,19 +2,31 @@
   "input": "Entrées",
   "output": "Sortir",
   "reset": "Réinitialiser",
-  "submit": "Soumettre",
-  "jobStatusIntro": "Voici le statut du travail nouvellement créé :",
-  "createdOn": "Créé le :",
-  "startedOn": "Commencé le :",
-  "updatedOn": "Mis à jour le :",
-  "finishedOn": "Terminé le :",
-  "statusColon": "Statut :",
-  "progress": "Progrès :",
-  "message": "Message :",
-  "result": "Résultat :",
+  "execute": "Exécuter",
+  "jobStatusIntro": "Voici le statut du travail nouvellement créé",
+  "createdOn": "Créé",
+  "startedOn": "Commencé:",
+  "updatedOn": "Mis à jour le",
+  "finishedOn": "Terminé le",
+  "submitted": "Soumis",
+  "submitting": "Soumission",
+  "progress": "Progrès",
+  "message": "Message",
+  "result": "Résultat",
   "download": "Télécharger",
   "openIn2D": "Ouvrir en 2D",
   "openIn3D": "Ouvrir en 3D",
   "close": "Fermer",
-  "status": "Statut"
+  "status": "Statut",
+  "closeMap": "Fermer la carte",
+
+
+  "accepted": "Accepté",
+  "running": "En cours",
+  "successful": "Réussi",
+  "failed": "Échoué",
+  "dismissed": "Rejeté",
+
+
+  "invalidResponse": "Réponse invalide"
 }

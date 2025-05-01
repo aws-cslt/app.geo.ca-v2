@@ -1,121 +1,171 @@
 <script lang="ts">
-	import Close from '$lib/components/icons/close.svelte';
+	import Description from './description.svelte';
+	import Metadata from './metadata.svelte';
+	import MapPreview from './map.svelte';
+
+	import { tick } from 'svelte';
+	import { page } from '$app/stores';
 	import { toggleScroll } from '$lib/components/component-utils/toggleScroll';
 	import { poll } from '$lib/components/component-utils/poller';
 
-	let promise: Promise<Response> | undefined;
-	let stopPoller: Function | undefined;
+	import './process-schema.ts';
 
-	type Error = {
-		message: string;
-	};
+	const process = $page.data.svcDef;
+	const t = $page.data.t;
+
+	let stopPoller: Function | undefined;
 
 	interface Props {
 		active?: boolean;
-		t: any;
 	}
 
-	let { active = $bindable(false), t }: Props = $props();
+	let { active = $bindable(false) }: Props = $props();
 
 	let jobId: string | undefined = $state();
-	let statusJson: object | undefined = $state();
-	let resultLink: string | undefined = $state();
+
+	let statusJson: JobStatus = $state({
+		jobID: '',
+		status: '',
+		type: ''
+	});
+
+	let resultUrl: string | undefined = $state();
+	let requestedFormat: string = $state('');
 
 	let processSuccessful: boolean = $state(false);
-	let error: Error | undefined = $state();
+
+	let map: MapPreview | undefined = $state();
+
+	let mapVisible: boolean = $state(false);
+	let requestUrl: string = $state('');
+
+	const supportedTypes3d = ['application/vnd.google-earth.kml+xml', 'application/geo+json'];
+	const supportedTypes2d = ['application/geo+json'];
 
 	// Submit the execution request
-	export function execute(request: object, url: string) {
-		fetch(url, {
+	export async function execute(request: ExecutionRequest, url: string) {
+		requestUrl = url;
+		requestedFormat = request.outputs[Object.keys(request.outputs)[0]].format;
+
+		let resp = await fetch(url, {
 			method: 'POST',
 			body: JSON.stringify(request),
 			headers: {
 				'Content-Type': 'application/json; charset=UTF-8'
 			}
-		}).then((r) => handleResponse(r));
+		});
+
+		handleResponse(resp);
 	}
 
-	function handleResponse(response: Response) {
-		if (response.status != 201 || !response.headers.get('location')) {
-			error = { message: 'Expected HTTP 201 response but got ' + `${response.status}` };
+	async function handleResponse(executeResponse: Response) {
+		if (executeResponse.status != 201 || !executeResponse.headers.get('location')) {
+			console.error('Invalid response: Expected HTTP 201');
 			return;
 		}
 
-		let statusLink = response.headers.get('location');
+		let statusLink = executeResponse.headers.get('location');
+		if (!statusLink) {
+			console.error('Missing location header');
+			return;
+		}
 
-		response.json().then((json) => {
-			statusJson = json;
-			jobId = json.jobID;
+		try {
+			statusJson = await executeResponse.json();
+		} catch (e) {
+			if (e instanceof SyntaxError) {
+				console.error('Error parsing JSON response: Syntax Error.');
+			} else {
+				console.error('Error parsing JSON response.');
+			}
 
-			[promise, stopPoller] = poll(
-				async () => {
-					// Main Loop
-					try {
-						console.log('Polling: ' + statusLink);
-						return await fetch(statusLink);
-					} catch (error) {
-						return console.log(error);
-					}
-				},
-				async (response: Response) => {
-					// Validation Function
-					console.log('Status: ' + response.status);
-					if (response.status != 204 || !response.headers.get('link')) {
-						// TODO: Error
-					}
+			return;
+		}
 
-					try {
-						const json = await response.json();
-						console.log('Job Status: ' + json.status);
-						statusJson = json;
-						processSuccessful = json.status == 'successful';
-						return json.status != 'accepted' && json.status != 'running';
-					} catch (error) {
-						return console.error(error);
-					}
-				},
-				5000 // Loop every 5 seconds
-			);
+		if (!statusJson) {
+			return;
+		}
 
-			promise.then((response: Response) => {
-				let resultEndpoint: string = statusJson.links.find(
-					(link: object) =>
-						link.rel == 'http://www.opengis.net/def/rel/ogc/1.0/results' || link.rel == 'result'
-				)?.href;
-				console.log('Result Endpoint: ' + resultEndpoint);
+		jobId = statusJson.jobID;
 
-				if (resultEndpoint != null) {
-					console.log('Getting Result URL...');
-					fetch(resultEndpoint).then((response) => {
-						console.log('Request Status:' + response.status);
-						if (response.status != 204) {
-							error = { message: 'Expected HTTP 204 but got ' + `${response.status}` };
-						} else if (!response.headers.get('link')) {
-							error = { message: "Response does not contain a 'link' header." };
-						}
-
-						let link = response.headers
-							.get('link')
-							?.split(',')
-							.find((link) => link.includes('; rel="result"'))
-							?.split(';')[0];
-
-						if (!link) {
-							error = { message: 'No valid result url found in link header.' };
-						} else {
-							console.log('Link: ' + link);
-							resultLink = link?.substring(1, link.length - 1);
-							console.log('Parsed Link: ' + resultLink);
-						}
-					});
+		let result = poll(
+			async () => {
+				// Main Loop
+				try {
+					return await fetch(statusLink);
+				} catch (error) {
+					console.log(error);
 				}
-			});
-		});
+			},
+			async (statusResponse: Response) => {
+				// Validation Function
+				if (statusResponse.status != 204 || !statusResponse.headers.get('link')) {
+					// TODO: Error
+				}
+
+				try {
+					const json = await statusResponse.json();
+					statusJson = json;
+					processSuccessful = json.status == 'successful';
+					return json.status != 'accepted' && json.status != 'running';
+				} catch (error) {
+					return console.error(error);
+				}
+			},
+			5000 // Loop every 5 seconds
+		);
+
+		stopPoller = result.cancelFunction;
+		await result.result;
+
+		// Find all result links before attempting to filter on language.
+		let resultEndpoints = statusJson.links?.filter(
+			(link: Link) =>
+				link.hasOwnProperty('rel') &&
+				(link.rel == 'http://www.opengis.net/def/rel/ogc/1.0/results' || link.rel == 'result')
+		);
+
+		if (resultEndpoints == undefined) {
+			console.error('Invalid response: No result link found');
+			return;
+		}
+
+		let resultEndpoint = resultEndpoints?.find(
+			(link: Link) => link.hasOwnProperty('hreflang') && $page.data.lang.search(link.hreflang) != -1
+		)?.href;
+
+		if (resultEndpoint == undefined) resultEndpoint = resultEndpoints[0].href;
+
+		if (resultEndpoint == undefined) {
+			console.error('Invalid response: No result link found');
+			return;
+		}
+
+		let resultResponse = await fetch(resultEndpoint);
+		if (resultResponse.status != 204) {
+			console.error('Invalid response: Expected HTTP 204');
+		} else if (!resultResponse.headers.get('link')) {
+			console.error('Invalid response: Expected HTTP 201');
+		}
+
+		let link = resultResponse.headers
+			.get('link')
+			?.split(',')
+			.find((link) => link.includes('; rel="result"'))
+			?.split(';')[0];
+
+		if (!link) {
+			console.error('Invalid response: No valid result url found in link header.');
+		} else {
+			resultUrl = link?.substring(1, link.length - 1);
+		}
+
+		map?.reload();
 	}
 
 	/************* Handlers ***************/
 	function handleCloseButtonClick(event: Event) {
-		closeModal();
+		mapVisible = false;
 	}
 
 	function closeModal() {
@@ -123,96 +173,21 @@
 		toggleScroll(active);
 		stopPoller?.();
 
-		resultLink = undefined;
-		promise = undefined;
+		jobId = undefined;
+		resultUrl = undefined;
 		stopPoller = undefined;
-	}
+		processSuccessful = false;
 
-	function openIn3d() {
-		let sessionID = sessionStorage.getItem('sessionId3d');
-		if (!sessionID) {
-			if (location.protocol !== 'https:') {
-				sessionID = (Math.random() * 1e16).toFixed(0).toString();
-			} else {
-				sessionID = self.crypto.randomUUID();
-			}
-			sessionStorage.setItem('sessionId3d', sessionID);
-		}
+		map = undefined;
 
-		fetch(
-			`https://syxgzh0xkc.execute-api.ca-central-1.amazonaws.com/fhimp_dev/3d/test-sock?sessionID=${sessionID}`,
-			{
-				method: 'POST',
-				body: JSON.stringify({
-					type: 'KML',
-					args: [
-						{
-							uid: '45665454654hgj6546546545455646546',
-							url: `${resultLink}`,
-							title: 'Flood Mapping KML result',
-							description: 'Flood Mapping KML result',
-							type: 'KML',
-							serviceInfo: {
-								serviceTitle: 'KML',
-								serviceId: 'KML-5919515191',
-								serviceUrl: `${resultLink}`
-							}
-						}
-					]
-				}),
-				headers: {
-					'Content-type': 'application/json; charset=UTF-8'
-				}
-			}
-		)
-			.then((response) => response.json())
-			.then((data) => {
-				if (data.clientOpened) {
-					let winref = window.open(
-						'',
-						'3d',
-						'menubar=no,location=no,toolbar=no,status=no,directories=no,resizable=yes'
-					);
-					winref?.focus();
-				} else {
-					window.open(
-						`https://dyb0tihhksw75.cloudfront.net/?sessionID=${sessionID}`,
-						'3d',
-						'menubar=no,location=no,toolbar=no,status=no,directories=no,resizable=yes'
-					);
-				}
-			});
-		// window.open(
-		// 	'http://fhimp-chris-test.s3-website.ca-central-1.amazonaws.com/?sessionID=' + jobId,
-		// 	'_blank'
-		// );
-		// fetch(
-		// 	'https://syxgzh0xkc.execute-api.ca-central-1.amazonaws.com/fhimp_dev/3d/test-sock?sessionID=' +
-		// 		jobId,
-		// 	{
-		// 		method: 'POST',
-		// 		body: JSON.stringify({
-		// 			type: 'KML',
-		// 			args: [
-		// 				{
-		// 					uid: '45665454654hgj6546546545455646546',
-		// 					url: `${resultLink}`,
-		// 					title: 'Flood Mapping KML result',
-		// 					description: 'Flood Mapping KML result',
-		// 					type: 'KML',
-		// 					serviceInfo: {
-		// 						serviceTitle: 'KML',
-		// 						serviceId: 'KML-5919515191',
-		// 						serviceUrl: `${resultLink}`
-		// 					}
-		// 				}
-		// 			]
-		// 		}),
-		// 		headers: {
-		// 			'Content-Type': 'application/json; charset=UTF-8'
-		// 		}
-		// 	}
-		// );
+		statusJson = {
+			jobID: '',
+			status: '',
+			type: ''
+		};
+
+		mapVisible = false;
+		requestedFormat = '';
 	}
 </script>
 
@@ -223,82 +198,56 @@
 	]}
 >
 	<div
-		class="md:grid md:grid-cols-6 bg-custom-1 border border-custom-21 w-full md:w-3/5 h-fit md:mt-36 m-5 md:m-0"
+		class="md:grid md:grid-cols-6 bg-custom-1 border border-custom-21 w-full md:w-2/3 h-fit md:mt-2 m-5 md:m-0"
 	>
-		<div class="col-span-5 flex flex-col gap-5 px-5 pb-5 pt-8 font-custom-style-body-1">
-			<div>
-				<h1 class="font-custom-style-h1-2">{t['status']}</h1>
-				{#if jobId}
-					<p>{t['jobStatusIntro']}</p>
-					<ul>
-						<li>{t['createdOn']} {statusJson.created}</li>
-						<li>{t['startedOn']} {statusJson.started}</li>
-						<li>{t['updatedOn']} {statusJson.updated}</li>
-						<li>{t['finishedOn']} {statusJson.finished}</li>
-						<li>{t['statusColon']} {statusJson.status}</li>
-						<li>{t['progress']} {statusJson.progress}%</li>
-						<li>{t['message']} {statusJson.message}</li>
-					</ul>
-					{#if processSuccessful && !resultLink}
-						<p>Error: Failed to get result URL.</p>
-					{/if}
-				{:else if error}
-					<p>Error: Invalid Response</p>
-					<p>{error.message}</p>
-				{/if}
-			</div>
-		</div>
 		<div
-			id="close-button"
-			class="absolute md:static top-2 right-4 col-span-1 px-5 pt-8 justify-self-end"
+			id="page1"
+			class={[
+				'col-span-6 flex flex-col gap-5 px-5 pb-5 pt-8 font-custom-style-body-1',
+				mapVisible && 'hidden'
+			]}
 		>
-			<button
-				type="button"
-				class="flex justify-center items-center border border-custom-16 rounded-[50%]
-            h-9 w-9 md:h-[3.0625rem] md:w-[3.0625rem] hover:bg-custom-16 text-custom-16
-            hover:text-custom-1"
-				onclick={handleCloseButtonClick}
-			>
-				<Close classes="h-4 md:h-[1.3125rem]" />
-			</button>
+			<Description />
+			<Metadata bind:status={statusJson} />
+			{#if requestedFormat === 'application/geo+json'}
+				<MapPreview bind:status={statusJson} bind:resultUrl bind:this={map} />
+			{/if}
 		</div>
-		<!-- <div class="col-span-6 gap-5 px-5 pb-5 pt-8 font-custom-style-body-1"> -->
-		<!-- <MapPreview /> -->
-		<!-- </div> -->
 		<div
 			id="bottom-buttons"
 			class="grid grid-cols-1 md:grid-cols-2 col-span-6 bg-custom-5 md:border-t border-custom-21 px-5 py-7 md:py-[1.125rem] gap-y-8"
 		>
-			<div class="flex flex-col md:flex-row gap-4">
-				<a
-					href={resultLink}
-					class="row-start-1 md:row-start-2 w-auto md:w-auto justify-self-start h-12 md:h-auto {resultLink
-						? 'button-3'
-						: 'button-3-disabled'}"
-				>
-					{t['download']}
-				</a>
-				<a
-					href={resultLink}
-					class="row-start-2 md:row-start-2 w-auto md:w-auto justify-self-start h-12 md:h-auto {resultLink
-						? 'button-3'
-						: 'button-3-disabled'}"
-				>
-					{t['openIn2D']}
-				</a>
-				<button
-					onclick={openIn3d}
-					class="row-start-2 md:row-start-2 w-auto md:w-auto justify-self-start h-12 md:h-auto {resultLink
-						? 'button-3'
-						: 'button-3-disabled'}"
-				>
-					{t['openIn3D']}
-				</button>
+			<div>
+				<div style="position: relative; display: inline-block;">
+					<a
+						href={resultUrl}
+						class="row-start-1 md:row-start-2 w-auto md:w-auto justify-self-start h-12 md:h-auto {resultUrl
+							? 'button-3'
+							: 'button-3-disabled'}"
+					>
+						{t['download']}
+					</a>
+					{#if !processSuccessful}
+						<!-- Add a mask over the link so that the cursor does not appear differently than that of a button -->
+						<div style="height:100%; width:100%; position:absolute; top:0; left:0;"></div>
+					{/if}
+				</div>
 			</div>
 			<button
 				class="w-full md:w-auto justify-self-end button-5 h-12 md:h-auto shadow-[0rem_0.1875rem_0.375rem_#00000029]"
-				onclick={handleCloseButtonClick}>{t['close']}</button
+				onclick={closeModal}>{t['close']}</button
 			>
 		</div>
 	</div>
 </div>
+
+<style>
+	.hide-scroll {
+		-ms-overflow-style: none; /* Edge */
+		scrollbar-width: none; /* Firefox */
+	}
+
+	.hide-scroll::-webkit-scrollbar {
+		@apply hidden; /* Chrome */
+	}
+</style>
