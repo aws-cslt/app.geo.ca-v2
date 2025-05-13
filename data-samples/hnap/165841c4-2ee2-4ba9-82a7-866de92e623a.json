@@ -1067,7 +1067,7 @@
                         "gmd:onLine": {
                             "gmd:CI_OnlineResource": {
                                 "gmd:linkage": {
-                                    "gmd:URL": "https://cwithers-dev-l.compusult.net/Prod/processes/FloodMapping?lang=en"
+                                    "gmd:URL": "https://<PROCESSING_API_URL>/Prod/processes/FloodMapping?lang=en"
                                 },
                                 "gmd:protocol": {
                                     "gco:CharacterString": {
@@ -1116,7 +1116,7 @@
                         "gmd:onLine": {
                             "gmd:CI_OnlineResource": {
                                 "gmd:linkage": {
-                                    "gmd:URL": "https://cwithers-dev-l.compusult.net/Prod/processes/FloodMapping?lang=fr"
+                                    "gmd:URL": "https://<PROCESSING_API_URL>/Prod/processes/FloodMapping?lang=fr"
                                 },
                                 "gmd:protocol": {
                                     "gco:CharacterString": {
@@ -1165,7 +1165,7 @@
                         "gmd:onLine": {
                             "gmd:CI_OnlineResource": {
                                 "gmd:linkage": {
-                                    "gmd:URL": "https://cwithers-dev-l.compusult.net/en-ca/process/165841c4-2ee2-4ba9-82a7-866de92e623a"
+                                    "gmd:URL": "https://localhost/en-ca/map-browser/record/165841c4-2ee2-4ba9-82a7-866de92e623a/process/"
                                 },
                                 "gmd:protocol": {
                                     "gco:CharacterString": {
@@ -1214,7 +1214,7 @@
                         "gmd:onLine": {
                             "gmd:CI_OnlineResource": {
                                 "gmd:linkage": {
-                                    "gmd:URL": "https://cwithers-dev-l.compusult.net/fr-ca/process/165841c4-2ee2-4ba9-82a7-866de92e623a"
+                                    "gmd:URL": "https://localhost/fr-ca/map-browser/record/165841c4-2ee2-4ba9-82a7-866de92e623a/process"
                                 },
                                 "gmd:protocol": {
                                     "gco:CharacterString": {
