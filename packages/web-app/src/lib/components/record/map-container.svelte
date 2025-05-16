@@ -5,7 +5,7 @@
   import NotVisible from "$lib/components/icons/not-visible.svelte";
 
   const translations = $page.data.t;
-  const mapPreviewtext = translations?.mapPreview ? translations["mapPreview"] : "Map Preview";
+  const mapText = translations?.map ? translations["map"] : "Map";
   const mapNotAvailableText = translations?.mapNotAvailable ? translations["mapNotAvailable"] : "";
   const windowTooSmall = translations?.windowTooSmall ? translations["windowTooSmall"] : "";
 
@@ -24,7 +24,10 @@
   const temporalExtentEnd = items?.properties?.extent?.temporalExtent?.end;
   let useTimeSlider = !!(temporalExtentStart && temporalExtentEnd);
 
-  // For small screens, don't include the map preview
+  /***************** Chart ****************************/
+  const addChart = true;
+
+  // For small screens, don't include the map
   let showMap = $state(true);
 
   const checkScreenSize = () => {
@@ -50,10 +53,18 @@
 
 <div class="font-custom-style-body-1">
   <h2 class="font-custom-style-h2 mb-1 mx-5 md:mx-0">
-    {mapPreviewtext}
+    {mapText}
   </h2>
   {#if coordinates && showMap}
-    <Map {coordinates} id={uuid} dynamic={true} mapType="record" footer={true} timeSlider={useTimeSlider} />
+    <Map
+      {coordinates}
+      id={uuid}
+      dynamic={true}
+      mapType="record"
+      footer={true}
+      timeSlider={useTimeSlider}
+      chart={addChart}
+    />
   {:else if coordinates}
     <p class="mx-5 md:mx-0">
       {windowTooSmall}

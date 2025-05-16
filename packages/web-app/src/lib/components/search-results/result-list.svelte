@@ -1,13 +1,16 @@
 <script lang="ts">
   import { page, navigating } from '$app/stores';
   import { afterNavigate, goto } from '$app/navigation';
-  import { tick } from 'svelte';
+  import { tick, onMount } from 'svelte';
   import Accordion from '$lib/components/accordion/accordion.svelte';
   import Card from '$lib/components/card/card.svelte';
-  import LoadingMask from '$lib/components/loading-mask/loading-mask.svelte';
+  import ResultListSkeleton from '$lib/components/loading-mask/result-list-skeleton.svelte';
   import Map from '$lib/components/map/map.svelte';
   import Pagination from '$lib/components/pagination/pagination.svelte';
   import SelectCustomized from '$lib/components/select-customized/select-customized.svelte';
+  import NotVisible from '$lib/components/icons/not-visible.svelte';
+  import Heart from '$lib/components/icons/heart.svelte';
+  import HeartFilled from '$lib/components/icons/heart-filled.svelte';
 
   /************* User Data ***************/
   const userId = $page.data.userData?.uuid;
@@ -16,11 +19,12 @@
   const translations = $page.data.t;
 
   const mapNotAvailableText = translations?.mapNotAvailable ?
-    translations["mapNotAvailable"] : "Map preview not available";
+    translations["mapNotAvailable"] : "Map not available";
   const saveSearchParamsText = translations?.saveSearchParams ?
     translations["saveSearchParams"] : "Save Search Parameters";
   const formatText = translations?.formatParams ? translations["format"] : "Format";
   const organizationText = translations?.organization ? translations["organization"] : "Organization";
+  const windowTooSmall = translations?.windowTooSmall ? translations["windowTooSmall"] : "";
 
   /************* Accordion Components ***************/
   let data = $derived($page.data);
@@ -29,6 +33,10 @@
   // When the page data changes, close all of the accordions.
   // This will reset the maps.
   $effect(() => {
+    closeAllAccordions();
+  });
+
+  function closeAllAccordions() {
     if (data) {
       accordionComponents.forEach((accordion) => {
         if (accordion) {
@@ -36,7 +44,7 @@
         }
       })
     }
-  });
+  }
 
   /****************** Sorting ******************/
   // + 1 because the first page of results is page 0, but the pagination element starts at 1
@@ -80,6 +88,12 @@
   }
 
   function changePage(event: CustomEvent) {
+    // Go to the top of the page with new page load
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+
     currentPage = event;
     $page.url.searchParams.set('page-number', `${currentPage - 1}`);
     $page.url.searchParams.set('results-per-page', `${itemsPerPage}`);
@@ -111,8 +125,49 @@
       return x && x !== 'null' && x != 'undefined' && self.indexOf(x) === index;
     });
 
-    return filteredFormats.join(', ');
+    return filteredFormats;
   }
+
+  /****************** MyMap Resources ******************/
+  let favouriteRecordList = $state($page.data?.userData?.mapCart ? [...$page.data?.userData?.mapCart] : []);
+
+  async function handleFavouriteClick(recordId) {
+
+    if (!favouriteRecordList.includes(recordId)) {
+      // Add to list of ids
+      favouriteRecordList.push(recordId);
+
+      if ($page.data.signedIn) {
+        // TODO: Add item to the mapCart when login system has been approved
+      }
+    } else {
+      // Remove from list of ids
+      let index = favouriteRecordList.indexOf(recordId);
+      if (index > -1) {
+        favouriteRecordList.splice(index, 1);
+      }
+
+      if ($page.data.signedIn) {
+        // TODO: Remove item from the mapCart when login system has been approved
+      }
+    }
+
+    localStorage.setItem("MyMapResources", favouriteRecordList);
+  }
+
+  // Local storage is only accessible from the client side, so we need to get
+  // the MyMapResources array inside onMount
+  onMount(() => {
+    if (!$page.data.signedIn) {
+      let stored = localStorage.getItem("MyMapResources");
+
+      if (stored) {
+        // local storage is always a string, so we need to convert to an array
+        stored = stored.split(",");
+        favouriteRecordList = [...stored];
+      }
+    }
+  });
 
   /****************** Map ******************/
   let mapType = 'resultList';
@@ -128,10 +183,13 @@
   });
 </script>
 
+<!-- When the window is resized, we can close each accordion to reset the map variables. -->
+<svelte:window onresize={closeAllAccordions} />
+
 <Card>
   {#if $navigating}
-    <LoadingMask classes="absolute bottom-0 right-0 z-10"/>
-  {/if}
+    <ResultListSkeleton numRecords={results.length} />
+  {:else}
   <!-- Header -->
   <div class="flex flex-col md:flex-row justify-between flex-wrap gap-y-4">
     <p class="font-custom-style-body-6">
@@ -157,21 +215,43 @@
     <div class="bg-custom-1 px-5 py-4">
       <Accordion bind:this={accordionComponents[index]}>
         {#snippet accordionTitle()}
-          <div>
-            <a 
-              href={hrefPrefix + result.id}
-              class="uppercase underline font-custom-style-header-2"
-            >
-              {result.title}
-            </a>
-            <div class="line-clamp-2 pt-1">
-              <!-- Remove new line characters -->
-              {result.description.replaceAll('\\n', '')}
+          <div class="sm:flex">
+            <!------------- Record info ------------->
+            <div class="grow">
+              <a
+                href={hrefPrefix + result.id}
+                class="uppercase underline font-custom-style-header-2"
+              >
+                {lang == 'fr' ? result.title_fr : result.title_en}
+              </a>
+              <div class="line-clamp-2 pt-1">
+                <!-- Remove new line characters -->
+                {lang == 'fr' ?
+                  result.description_fr.replaceAll('\\n', '') :
+                  result.description_en.replaceAll('\\n', '')
+                }
+              </div>
             </div>
+
+            <!------------- Favourites button ------------->
+            <button
+              class="dont-open text-custom-16 self-center p-2 w-fit border border-custom-16
+                rounded-full shadow-[0_0.1875rem_0.375rem_#00000029] mt-2 sm:mt-0 sm:ml-6 sm:mr-1"
+              onclick={() => handleFavouriteClick(result.id)}
+            >
+              {#if favouriteRecordList.includes(result.id)}
+                <HeartFilled classes="h-6" />
+              {:else}
+                <Heart classes="h-6" />
+              {/if}
+              <!---->
+            </button>
           </div>
         {/snippet}
         {#snippet accordionContent()}
           <div  class="mt-5">
+
+            <!------------- Record Details ------------->
             <div class="mb-5">
               <p>
                 <span class="font-semibold">{organizationText}: </span>
@@ -179,27 +259,43 @@
                     result.contact[0].organisation.fr.replaceAll(';', '; ') :
                     result.contact[0].organisation.en.replaceAll(';', '; ')}
               </p>
-              <p>
+              <p class="mt-2">
                 <span class="font-semibold">{formatText}: </span>
-                {getFormats(result)}
+                {#each getFormats(result) as format, i}
+                  <span class="text-sm bg-custom-16/15 py-0.5 px-2 mt-1 mr-2 rounded inline-block">{format}</span>
+                {/each}
               </p>
             </div>
+
+            <!------------- Map ------------->
+            <!-- Note: We will only show a map for screens larger than 640px -->
             {#if result.coordinates}
-              <div class="flex">
+              <div class="hidden sm:flex">
                 <Map
                   coordinates={result.coordinates} id={result.id}
-                  dynamic={true} mapType={mapType}
+                  dynamic={true} mapType={mapType} footer={false}
                 />
+              </div>
+              <div class="sm:hidden">
+                <p class="md:mx-0">
+                  {windowTooSmall}
+                </p>
+                <div class="mt-5 bg-[url('/map-not-available.png')] bg-cover max-w-full h-60">
+                  <div class="bg-black/35 w-full h-full flex items-center justify-center">
+                    <NotVisible classes="text-custom-1 h-32"/>
+                  </div>
+                </div>
               </div>
             {:else}
               {mapNotAvailableText}
             {/if}
+
           </div>
         {/snippet}
       </Accordion>
     </div>
   {/each}
-  <!-- Pagination -->
+  <!------------- Pagination ------------->
   <div class="flex justify-end w-full">
     <Pagination
       totalItems={total}
@@ -208,4 +304,5 @@
       pageChange={changePage}
     />
   </div>
+  {/if}
 </Card>

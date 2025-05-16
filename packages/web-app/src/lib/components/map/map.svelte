@@ -13,6 +13,7 @@
     mapType?: any;
     footer?: boolean;
     timeSlider?: boolean;
+    chart?: boolean;
   }
 
   let {
@@ -24,7 +25,8 @@
     mapProjection = 3978,
     mapType = null,
     footer = false,
-    timeSlider = false
+    timeSlider = false,
+    chart = false,
   }: Props = $props();
 
   let mapId = 'map-' + mapType + '-' + id;
@@ -47,14 +49,19 @@
       },
     },
     theme: 'geo.ca',
-    components: [],
-    corePackages: []
+    components: ['north-arrow', 'overview-map'],
+    corePackages: [],
+    appBar: {
+      tabs: {
+        core: ['geolocator', 'legend']
+      }
+    }
   });
 
   if (footer) {
     config.footerBar = {
       tabs: {
-        core: ["legend", "data-table"]
+        core: ['layers', 'details', 'data-table']
       },
       collapsed: true
     }
@@ -67,6 +74,19 @@
       config.footerBar = {
         tabs: {
           core: ["time-slider"]
+        },
+        collapsed: true
+      }
+    }
+  }
+
+  if (chart) {
+    if (footer) {
+      config.footerBar.tabs.core.push("geochart");
+    } else {
+      config.footerBar = {
+        tabs: {
+          core: ["geochart"]
         },
         collapsed: true
       }
@@ -233,7 +253,7 @@
       // Add bounding box when no map is available
       if (!geoviewLayerConfig) {
         let bbox = getBbox(coordinates);
-        cgpv.api.maps[mapId]?.layer.geometry.addPolygon(
+        cgpv.api.getMapViewer(mapId)?.layer.geometry.addPolygon(
           [bbox],
           {
             style: {
@@ -254,16 +274,13 @@
 </script>
 
 <svelte:head>
-  <!-- TODO: switch back to old link after geoview pull request with modifyDragged event accepted -->
-  <!-- <script src="https://lbercovitch.github.io/geoview-leah/cgpv-main.js"></script> -->
-  <script src="http://localhost:8081/cgpv-main.js"></script>
-  <!--<script src="https://canadian-geospatial-platform.github.io/geoview/public/cgpv-main.js"></script>-->
+  <script src="https://canadian-geospatial-platform.github.io/geoview/public/cgpv-main.js"></script>
 </svelte:head>
 
 {#if mapType === 'resultList'}
   <div
     id={mapId}
-    class="bg-blue-500/5 w-full h-64 md:h-80 lg:h-96 xl:h-[28rem] 2xl:h-[32rem]"
+    class="bg-blue-500/5 w-full aspect-video"
     data-config={sConfig}
     data-lang={mapLang}
   ></div>

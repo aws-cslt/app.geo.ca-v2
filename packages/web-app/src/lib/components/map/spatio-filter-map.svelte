@@ -102,15 +102,13 @@
 
   onMount(async () => {
     await tick();
-    // Remove any old copies of the map
-    cgpv.api.maps[mapId]?.remove(true);
 
     try {
       await cgpv.api.createMapFromConfig(mapId, sConfig);
 
       /*********** Initialize Map and Polygon ***********/
 
-      const map = cgpv.api.maps[mapId];
+      const map = cgpv.api.getMapViewer(mapId);
       const layerGeometry = map?.layer.geometry;
       const bboxId = 'bbox-outline';
       const groupKey = 'bbox';
@@ -328,10 +326,7 @@
 </script>
 
 <svelte:head>
-  <!-- TODO: switch back to old link after geoview pull request with modifyDragged event accepted -->
-  <!-- <script src="https://lbercovitch.github.io/geoview-leah/cgpv-main.js"></script> -->
-  <script src="http://localhost:8081/cgpv-main.js"></script>
-  <!--<script src="https://canadian-geospatial-platform.github.io/geoview/public/cgpv-main.js"></script>-->
+  <script src="https://canadian-geospatial-platform.github.io/geoview/public/cgpv-main.js"></script>
 </svelte:head>
 
 <div

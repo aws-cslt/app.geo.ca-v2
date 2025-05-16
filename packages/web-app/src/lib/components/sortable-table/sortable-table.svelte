@@ -3,6 +3,7 @@
 	import SortDown from "$lib/components/icons/sort-down.svelte";
 	import SortInactive from "$lib/components/icons/sort-inactive.svelte";
 	import SortUp from "$lib/components/icons/sort-up.svelte";
+	import Checkmark from '$lib/components/icons/checkmark.svelte';
 	import { create3dRequestBody, SUPPORTED_3D_TYPES } from "$lib/utils/utils3d";
 
   /******************* Translations *******************/
@@ -20,9 +21,32 @@
     // Requires a url attriute in the tableContent array
     clickableRows: boolean;
     properties: any;
+    // currentPage and itemsPerPage are only needed when paginated is true
+    paginated: boolean;
+    currentPage: number;
+    itemsPerPage: number;
+    // Add a checkbox column
+    checkboxCol: boolean;
   }
 
-  let { tableContent, tableLabels, clickableRows, properties }: Props = $props();
+  let {
+    tableContent,
+    tableLabels,
+    clickableRows,
+    properties,
+    paginated = false,
+    currentPage = 0,
+    itemsPerPage = 0,
+    checkboxCol = false,
+  }: Props = $props();
+
+  /************** Translations **************/
+  const lang = $page.data.lang;
+  const selectAllLabel = lang == 'fr-ca' ? 'Tout sélectionner' : 'Select all';
+
+  // When the table has a checkbox column, we need to keep track of which ids are selected.
+  // This ensures that when the rows are sorted, the correct checkbox state matches the correct row.
+  let selectedIds = $state(new Set<number>());
 
   // Convert table label keys to an array to ensure that all data rows have the same order
   // and to simplify sorting
@@ -36,6 +60,40 @@
   let sortDirection: sortDirectionState = $state(0);
   // Unsorted by default
   let sortedTableContent = $state(tableContent);
+
+  let currentPageItems = $derived(
+    sortedTableContent.slice(
+      ((currentPage - 1) * itemsPerPage),
+      ((currentPage) * itemsPerPage)
+    )
+  );
+
+  let visibleRows = $derived(paginated ? currentPageItems : sortedTableContent);
+
+  // Allow parent component to get the list of checked rows
+  export function getSelectedIds() {
+    return selectedIds;
+  }
+
+  // Allow the parent component to update the table content, for example,
+  // if a row is removed by deleting a resource in the list.
+  export function updateTableContent(newTableContent) {
+    // When updating the table, make sure the correct sort order is maintained
+    if (sortDirection === 1) {
+      sortedTableContent = newTableContent.toSorted((a, b) =>
+        a[sortColumn].localeCompare(b[sortColumn])
+      );
+    } else if (sortDirection === 2) {
+      sortedTableContent = newTableContent.toSorted((a, b) =>
+        a[sortColumn].localeCompare(b[sortColumn])
+      ).reverse();
+    } else {
+      sortedTableContent = newTableContent;
+    }
+
+    // For paginated table, go back to the first page
+    currentPage = 1;
+  }
 
   function handleSortButtonClick(sortLable: string) {
     if (sortLable == sortColumn) {
@@ -56,15 +114,27 @@
     }
   }
 
-  function handleRowClick(url: string) {
-    if (url.length > 0) {
-      window.open(url);
+  // Update the list of checked rows
+  function handleCheckboxOnChange(event, rowId) {
+    if (event.target.checked) {
+      selectedIds = new Set(selectedIds).add(rowId);
+    } else {
+      const newSet = new Set(selectedIds);
+      newSet.delete(rowId);
+      selectedIds = newSet;
     }
   }
 
-  function handleRowClickKeydown(url: string, event: KeyboardEvent) {
-    if (url.length > 0 && (event.key == "Enter" || event.key == " ")) {
-      window.open(url);
+  // Update the list of checked rows so that all items are checked, or unchecked
+  function handleSelectAllChange(event) {
+    if (event.target.checked) {
+      const newSet = new Set(selectedIds);
+      visibleRows.forEach(row => newSet.add(row.id));
+      selectedIds = newSet;
+    } else {
+      const newSet = new Set(selectedIds);
+      visibleRows.forEach(row => newSet.delete(row.id));
+      selectedIds = newSet;
     }
   }
 
@@ -82,7 +152,7 @@
     }
     e.stopPropagation();
 	// //var popupPlayer= window.open('', 'popupPlayer', 'width=150,height=100') ;
-	
+
 	// let winref = window.open(
 	// 	`https://dyb0tihhksw75.cloudfront.net/?sessionID=${sessionID}`,
 	//         '3d',
@@ -100,7 +170,7 @@
 	//     })
 	//       .then((response) => response.json())
 	//   .then(data => console.log(data));
-	
+
     fetch(`https://syxgzh0xkc.execute-api.ca-central-1.amazonaws.com/fhimp_dev/3d/test-sock?sessionID=${sessionID}`, {
       method: 'POST',
       body: JSON.stringify(create3dRequestBody(properties, row)),
@@ -132,15 +202,40 @@
   <table class="w-full bg-custom-1">
     <thead>
       <tr>
+        {#if checkboxCol}
+          <!-------------- Check All Checkbox -------------->
+          <th class="w-fit border border-custom-9">
+            <div class="flex flex-col items-center w-fit mx-auto hover:cursor-pointer relative">
+              <label class="block font-custom-style-header-1 whitespace-nowrap mb-2" for="checkAll">
+                {selectAllLabel}
+              </label>
+              <input
+                type="checkbox"
+                id="checkAll"
+                name="checkAll"
+                checked={visibleRows.every((row) => selectedIds.has(row.id))}
+                class="peer appearance-none min-w-[1.6875rem] h-[1.6875rem] border-2
+                  border-custom-16 rounded-sm bg-custom-1 checked:bg-custom-16 hover:cursor-pointer"
+                onchange={(event) => handleSelectAllChange(event)}
+              />
+              <Checkmark
+                classes="absolute inset-y-[2.35rem] h-4 w-4 hidden peer-checked:block
+                  pointer-events-none text-custom-1 z-10"
+              />
+            </div>
+          </th>
+        {/if}
+
         {#each tableLabelsArray as labelTranslation, i}
-          <th class={[(i == 0 && tableLabelsArray.length > 1) && "w-[50%]"]}>
+          <!-------------- Column Titles -------------->
+          <th class={[(i == 0 && tableLabelsArray.length > 1) && "w-1/2"]}>
             <div class="flex flex-row justify-between font-custom-style-header-1">
               {tableLabels[labelTranslation]}
               <button class="px-2" onclick={() => handleSortButtonClick(labelTranslation)}>
                 {#if sortDirection == 1 && labelTranslation == sortColumn}
-                  <SortDown classes={"inline w-4 h-4 text-custom-16"}/>
-                {:else if sortDirection == 2 && labelTranslation == sortColumn}
                   <SortUp classes={"inline w-4 h-4 text-custom-16"}/>
+                {:else if sortDirection == 2 && labelTranslation == sortColumn}
+                  <SortDown classes={"inline w-4 h-4 text-custom-16"}/>
                 {:else}
                   <SortInactive classes={"inline w-4 h-4"}/>
                 {/if}
@@ -151,47 +246,62 @@
       </tr>
     </thead>
     <tbody>
-      {#each sortedTableContent as row}
-        {#if clickableRows && row?.url}
-          <!--
-            Adding a tab index ensures that each clickable row can
-            be navigated to using the tab key. Since tr elements are
-            not usually navigable, we also need to manually add a
-            keydown event to enable using enter or space to open the url.
-          -->
-          <tr
-            onclick={() => handleRowClick(row.url)}
-            onkeydown={(event) => handleRowClickKeydown(row.url, event)}
-            class="group hover:bg-custom-5 hover:cursor-pointer"
-            tabindex="0"
-            role="button"
-          >
+      {#each visibleRows as row, i}
+        <tr class={
+          [(clickableRows && row?.url && !checkboxCol) &&
+            'group hover:bg-custom-5 [&>td:first-child]:text-custom-16 [&>td:first-child]:font-bold [&>td:first-child]:hover:underline',
+          (clickableRows && row?.url && checkboxCol) &&
+            '[&>td:not(:first-child)]:hover:bg-custom-5 [&>td:nth-child(2)]:text-custom-16 [&>td:nth-child(2)]:font-bold [&>td:nth-child(2)]:hover:underline']
+        }>
+          {#if checkboxCol}
+            <!-------------- Checkbox Column -------------->
+            <td class="pointer-events-none align-center p-2.5 h-full">
+              <div class="flex pointer-events-auto w-fit mx-auto hover:cursor-pointer ">
+                <input
+                  type="checkbox"
+                  id={"check-" + row?.id}
+                  name={"check-" + row?.id}
+                  checked={selectedIds.has(row.id)}
+                  class="peer appearance-none min-w-[1.6875rem] h-[1.6875rem] border-2
+                    border-custom-16 rounded-sm bg-custom-1 checked:bg-custom-16 hover:cursor-pointer"
+                  onchange={(event) => handleCheckboxOnChange(event, row.id)}
+                />
+                <Checkmark
+                  classes="absolute h-4 mt-1.5 ml-1.5 hidden peer-checked:block
+                    pointer-events-none text-custom-1"
+                />
+              </div>
+            </td>
+          {/if}
+          {#if clickableRows && row?.url}
             {#each tableLabelsArray as label}
-              <td class="font-custom-style-body-4 first:text-custom-16 first:font-bold first:group-hover:underline">
-                {#if label === 'button_3d'}
-                  {#if SUPPORTED_3D_TYPES.includes(row.format)}
-                    <button
-                      class="button-5"
-                      onclick={(e) => openIn3D(e, row)}
-                    >
-                      {@html translations?.languages ? translations['openIn3D'] : '3D View'}
-                    </button>
+              <!-------------- Clickable Row -------------->
+              <td class="font-custom-style-body-4">
+                <a href={row.url} class="block w-full h-full p-2.5">
+                  {#if label === 'button_3d'}
+                    {#if SUPPORTED_3D_TYPES.includes(row.format)}
+                      <button
+                        class="button-5"
+                        onclick={(e) => openIn3D(e, row)}
+                      >
+                        {@html translations?.languages ? translations['openIn3D'] : '3D View'}
+                      </button>
+                    {/if}
+                  {:else}
+                    {@html row[label]}
                   {/if}
-                {:else}
-                  {@html row[label]}
-                {/if}
+                </a>
               </td>
             {/each}
-          </tr>
-        {:else}
-          <tr>
+          {:else}
             {#each tableLabelsArray as label}
-              <td class="font-custom-style-body-4">
+              <!-------------- Non-Clickable Row -------------->
+              <td class="font-custom-style-body-4 p-2.5">
                 {@html row[label]}
               </td>
             {/each}
-          </tr>
-        {/if}
+          {/if}
+        </tr>
       {/each}
     </tbody>
   </table>
@@ -203,7 +313,7 @@
     @apply border-custom-9;
   }
 
-  th, td {
+  th {
     @apply p-2.5;
   }
 </style>

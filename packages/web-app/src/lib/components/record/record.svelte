@@ -4,23 +4,27 @@
   import LoadingMask from '$lib/components/loading-mask/loading-mask.svelte';
 	import Description from './description.svelte';
 	import Metadata from './metadata.svelte';
-  import MapPreview from './map-preview.svelte';
+  import MapContainer from './map-container.svelte';
   import Keywords from './keywords.svelte';
   import SimilarProducts from './similar-products.svelte';
   import Tabbed from './tabbed/tabbed.svelte';
+
+  const similarProducts = $page.data.similar;
 </script>
 
 <MicroData item={$page.data.item_v2} />
 
 {#if $navigating}
-  <LoadingMask classes="fixed left-0 top-0" />
+  <LoadingMask classes="fixed left-0 top-0 items-center" />
 {/if}
 <div class="flex flex-col space-y-8">
   <Description />
   <Metadata />
-  <MapPreview />
+  <MapContainer />
   <Tabbed />
   <Keywords />
-  <!-- TODO: Uncomment SimilarProducts when the component no longer uses placeholder data -->
-  <!-- <SimilarProducts /> -->
+  <!-- Only add Similar products if they exist -->
+  {#if similarProducts.length > 0}
+    <SimilarProducts />
+  {/if}
 </div>

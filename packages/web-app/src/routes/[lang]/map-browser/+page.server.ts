@@ -4,7 +4,7 @@ import { addToMapCart, removeFromMapCart } from '$lib/actions.ts';
 import { getUserData } from '$lib/db/user.ts';
 import { sanitize } from '$lib/utils/data-sanitization/geocore-result.ts';
 import { sanitizeSemantic } from '$lib/utils/data-sanitization/semantic-results.ts';
-import Organizations from '$lib/components/search-results/filters/organizations.svelte';
+import { formatNumber } from '$lib/utils/format-number.ts';
 
 export const load: PageServerLoad = async ({ fetch, params, url, cookies }) => {
 	let searchMode = params?.searchMethod == 'classic' ? 'classic' : 'semantic';
@@ -42,6 +42,14 @@ export const load: PageServerLoad = async ({ fetch, params, url, cookies }) => {
 	} catch (e) {
 		console.warn(e);
 	}
+
+	const canonicalUrl = url.origin + '/' + params.lang + '/map-browser';
+	const alternateLang = params.lang == 'fr-ca' ? 'en-ca' : 'fr-ca';
+	const alternateUrl = url.href.replace(params.lang, alternateLang);
+	const metaDescription = params.lang == 'fr-ca' ?
+	  'Parcourez les enregistrements GeoCore et trouvez les jeux de données les plus pertinents selon vos termes de recherche et filtres sélectionnés.' :
+	  'Browse GeoCore records and find the most relevant datasets based on your search terms and selected filters.';
+
 	return {
 		lang: params.lang,
 		results: sanitizedResults,
@@ -50,7 +58,11 @@ export const load: PageServerLoad = async ({ fetch, params, url, cookies }) => {
 		end: getMin(url.searchParams) + sanitizedResults.length,
 		analytics: analytics,
 		searchMode: searchMode,
-		totalHits: totalHits
+		totalHits: totalHits,
+		canonicalUrl: canonicalUrl,
+		alternateUrl: alternateUrl,
+		alternateLang: alternateLang,
+		metaDescription: metaDescription,
 	};
 };
 
@@ -94,6 +106,15 @@ async function getAnalytics(fetch) {
 		console.error(e);
 	}
 
+	for (let i = 0; i < parsedAnalytics.Items.length; i++) {
+		let item = parsedAnalytics.Items[i];
+		let total = item?.total;
+		let organization = item?.organization;
+
+		parsedAnalytics.Items[i].total = total ? formatNumber(total) : 'N/A';
+		parsedAnalytics.Items[i].organization = organization ? formatNumber(organization) : 'N/A';
+	}
+
 	return parsedAnalytics?.Items[0] ?? {};
 }
 
@@ -135,7 +156,8 @@ function mapSemanticSearchResults(searchParams, lang) {
 	let bbox = searchParams.get('bbox') ?
 	  west + "," + south + "," + east + "," + north : "";
 	let ret = {
-	    method: 'SemanticSearch',
+		// Revisit which search method is better after user testing
+	    method: 'SemanticSearch', // 'HybridSearch',
 	    q: getKeyword(searchParams),
 	    bbox: bbox,
 	    relation: searchParams.get('relation') ?? 'intersects',
@@ -172,6 +194,9 @@ function getKeyword(searchParams) {
 	} else if (category) {
 		keywords = category;
 	}
+
+	// Remove quotation characters, the semantic search throws an error if they are included
+	keywords = keywords.replaceAll('"', '');
 
 	return keywords;
 }

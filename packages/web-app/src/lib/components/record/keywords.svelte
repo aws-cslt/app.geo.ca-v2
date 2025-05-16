@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
 
   const translations = $page.data.t;
-  const keywordsText = translations?.keywords ? translations["keywords"] : "Related Keywords";
+  const keywordsText = translations?.keywords ? translations["keywords"] : "Related keywords";
 
   const url = $page.url;
   const data = $page.data;
@@ -19,7 +19,7 @@
   <h2 class="font-custom-style-h2 mb-2 md:mb-2 mx-5 md:mx-0">
     {keywordsText}
   </h2>
-  <p class="mx-5 md:mx-0 space-y-4">
+  <p class="mx-5 md:mx-0 space-y-2">
     {#each keywords as keyword, i}
       <a
         class="font-custom-style-body-2 block sm:inline"
