@@ -78,16 +78,11 @@
 						listOfLayerEntryConfig: []
 					};
 
-					console.error(JSON.stringify(resultsLayer));
-
 					if (points.geoViewLayerConfig) {
 						(points.geoViewLayerConfig.layerId = 'blank_layer.json'),
-							console.error(JSON.stringify(points.geoViewLayerConfig));
 						resultsLayer.listOfLayerEntryConfig.push(points.geoViewLayerConfig);
-						console.error(JSON.stringify(resultsLayer));
 
 						delete points.geoViewLayerConfig;
-						console.log(points);
 					}
 
 					async function addLayerToMap(sender: any, event: any) {

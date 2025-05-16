@@ -17,7 +17,6 @@ export function poll(fn: Function, validate: Function, interval: number) {
 
   let promise = new Promise(execute);
 
-  return [new Promise(execute), clear];
   return {
     result: promise,
     cancelFunction: clear
