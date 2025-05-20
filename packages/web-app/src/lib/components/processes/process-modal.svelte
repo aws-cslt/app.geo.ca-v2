@@ -210,7 +210,7 @@
 		>
 			<Description />
 			<Metadata bind:status={statusJson} />
-			{#if requestedFormat === 'application/geo+json'}
+			{#if requestedFormat === 'application/geo+json' && processSuccessful}
 				<MapPreview bind:status={statusJson} bind:resultUrl bind:this={map} />
 			{/if}
 		</div>

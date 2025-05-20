@@ -71,7 +71,7 @@
 				.then((response) => response.json())
 				.then((points) => {
 					let resultsLayer = {
-						geoviewLayerId: 'process-results',
+						geoviewLayerId: mapId,
 						geoviewLayerName: 'OGC API Process Results',
 						metadataAccessPath: '/blank_layer.meta',
 						geoviewLayerType: 'GeoJSON',
@@ -92,7 +92,7 @@
 							if (addedResult) {
 								addedResult.promiseLayer.then(() => {
 									cgpv.api.getMapViewer(mapId).layer
-									    .getGeoviewLayer('process-results/blank_layer.json')
+									    .getGeoviewLayer(`${mapId}/blank_layer.json`)
 										.setGeojsonSource(points);
 
 									const extent = cgpv.api.getMapViewer(mapId).layer.getExtentOfMultipleLayers();
