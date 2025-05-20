@@ -79,25 +79,24 @@
 					};
 
 					if (points.geoViewLayerConfig) {
-						(points.geoViewLayerConfig.layerId = 'blank_layer.json'),
+						points.geoViewLayerConfig.layerId = 'blank_layer.json';
 						resultsLayer.listOfLayerEntryConfig.push(points.geoViewLayerConfig);
 
 						delete points.geoViewLayerConfig;
 					}
 
 					async function addLayerToMap(sender: any, event: any) {
-						if (event.mapId === 'process-results') {
-							let addedResult =
-								cgpv.api.maps['process-results'].layer.addGeoviewLayer(resultsLayer);
+						if (event.mapId === mapId) {
+							let addedResult = cgpv.api.getMapViewer(mapId).layer.addGeoviewLayer(resultsLayer);
 
 							if (addedResult) {
 								addedResult.promiseLayer.then(() => {
-									cgpv.api.maps['process-results'].layer
-										.getGeoviewLayer('process-results/blank_layer.json')
-										.overrideGeojsonSource(points);
+									cgpv.api.getMapViewer(mapId).layer
+									    .getGeoviewLayer('process-results/blank_layer.json')
+										.setGeojsonSource(points);
 
-									const extent = cgpv.api.maps['process-results'].layer.getExtentOfMultipleLayers();
-									cgpv.api.maps['process-results'].zoomToExtent(extent);
+									const extent = cgpv.api.getMapViewer(mapId).layer.getExtentOfMultipleLayers();
+									cgpv.api.getMapViewer(mapId).zoomToExtent(extent);
 								});
 
 								loaded = true;
@@ -106,20 +105,22 @@
 					}
 
 					// Remove any old copies of the map
-					cgpv.api.maps[mapId]?.remove(true);
+					try {
+						console.debug('Removing old instances of map with id ' + mapId);
+						cgpv.api.getMapViewer(mapId)?.remove(true);
+					} catch (e) {
+						console.debug('No map found...');
+					}
 
 					cgpv.api.onMapAddedToDiv(addLayerToMap);
-					cgpv.api.createMapFromConfig('process-results', sConfig);
+					cgpv.api.createMapFromConfig(mapId, sConfig);
 				});
 		}
 	}
 </script>
 
 <svelte:head>
-	<!-- TODO: switch back to old link after geoview pull request with modifyDragged event accepted -->
-	<!-- <script src="https://lbercovitch.github.io/geoview-leah/cgpv-main.js"></script> -->
-	<script src="http://10.1.4.228:8080/cgpv-main.js"></script>
-	<!--<script src="https://canadian-geospatial-platform.github.io/geoview/public/cgpv-main.js"></script>-->
+	<script src="https://canadian-geospatial-platform.github.io/geoview/public/cgpv-main.js"></script>
 </svelte:head>
 
 <div class="w-full">
